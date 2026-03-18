@@ -9,12 +9,15 @@ import {
   Maximize2, 
   Ruler, 
   ChevronRight, 
-  Printer, 
+  Share2,
   Loader2,
   Sparkles,
-  ArrowLeft
+  ArrowLeft,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import { Topic, TopicId, DidacticSheet } from './types';
 import { generateDidacticSheet } from './services/gemini';
 
@@ -65,8 +68,68 @@ export default function App() {
     setError(null);
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handleShare = async (mode: 'share' | 'download' = 'share') => {
+    if (!sheet) return;
+    setLoading(true);
+    try {
+      const element = document.getElementById('didactic-sheet');
+      if (!element) return;
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        onclone: (clonedDoc) => {
+          const elements = clonedDoc.getElementsByTagName('*');
+          for (let i = 0; i < elements.length; i++) {
+            const el = elements[i] as HTMLElement;
+            const style = window.getComputedStyle(el);
+            const props = ['color', 'backgroundColor', 'borderColor', 'boxShadow'];
+            props.forEach(prop => {
+              const val = (el.style as any)[prop] || style.getPropertyValue(prop);
+              if (val && (val.includes('oklch') || val.includes('oklab'))) {
+                if (prop === 'backgroundColor') el.style.backgroundColor = '#ffffff';
+                else if (prop === 'color') el.style.color = '#000000';
+                else if (prop === 'borderColor') el.style.borderColor = '#cccccc';
+                else if (prop === 'boxShadow') el.style.boxShadow = 'none';
+              }
+            });
+          }
+        }
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      });
+
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      const pdfBlob = pdf.output('blob');
+      const fileName = `Ficha_${sheet.title.replace(/\s+/g, '_')}.pdf`;
+
+      if (mode === 'share' && navigator.share && navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], fileName, { type: 'application/pdf' })] })) {
+        try {
+          await navigator.share({
+            files: [new File([pdfBlob], fileName, { type: 'application/pdf' })],
+            title: sheet.title,
+            text: `Ficha didáctica: ${sheet.title}`
+          });
+        } catch (shareErr: any) {
+          console.warn('Navigator share failed, falling back to download:', shareErr);
+          pdf.save(fileName);
+        }
+      } else {
+        pdf.save(fileName);
+      }
+    } catch (err) {
+      console.error('Error handling PDF:', err);
+      setError('No se pudo generar el PDF. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -148,12 +211,24 @@ export default function App() {
                   <ArrowLeft size={18} /> Volver al menú
                 </button>
                 {sheet && (
-                  <button 
-                    onClick={handlePrint}
-                    className="flex items-center gap-2 bg-stone-900 text-white px-4 py-2 rounded-lg hover:bg-stone-800 transition-colors shadow-sm"
-                  >
-                    <Printer size={18} /> Imprimir ficha
-                  </button>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => handleShare('share')}
+                      disabled={loading}
+                      className="flex items-center gap-2 bg-white text-emerald-600 border border-emerald-600 px-4 py-2 rounded-lg hover:bg-emerald-50 transition-colors shadow-sm disabled:opacity-50"
+                    >
+                      {loading ? <Loader2 className="animate-spin" size={18} /> : <Share2 size={18} />}
+                      Compartir
+                    </button>
+                    <button 
+                      onClick={() => handleShare('download')}
+                      disabled={loading}
+                      className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50"
+                    >
+                      {loading ? <Loader2 className="animate-spin" size={18} /> : <Download size={18} />}
+                      Descargar PDF
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -176,7 +251,7 @@ export default function App() {
                   </button>
                 </div>
               ) : sheet && (
-                <div className="bg-white shadow-xl rounded-none md:rounded-2xl overflow-hidden border border-stone-200 print:shadow-none print:border-none">
+                <div id="didactic-sheet" className="bg-white shadow-xl rounded-none md:rounded-2xl overflow-hidden border border-stone-200 print:shadow-none print:border-none">
                   {/* Sheet Header */}
                   <div className="bg-emerald-600 p-8 text-white flex justify-between items-start">
                     <div className="space-y-2">
@@ -186,7 +261,7 @@ export default function App() {
                       <h2 className="text-3xl font-bold leading-tight">{sheet.title}</h2>
                       <p className="text-emerald-50 text-lg opacity-90">{sheet.topic}</p>
                     </div>
-                    <div className="hidden sm:block border-2 border-emerald-400/30 rounded-lg p-3 text-center">
+                    <div className="hidden sm:block border-2 border-emerald-500 rounded-lg p-3 text-center">
                       <div className="text-[10px] uppercase font-bold tracking-tighter opacity-60">Grado</div>
                       <div className="text-2xl font-black">1°</div>
                     </div>
@@ -207,7 +282,7 @@ export default function App() {
 
                     <section className="space-y-12">
                       {sheet.activities.map((activity, idx) => (
-                        <div key={idx} className="space-y-4">
+                        <div key={idx} className="space-y-4 print-break-inside-avoid">
                           <div className="flex items-center gap-3">
                             <span className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 font-bold text-sm">
                               {idx + 1}
