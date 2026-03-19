@@ -4,7 +4,7 @@ import { DidacticSheet, TopicId } from "../types";
 const API_KEY = process.env.GEMINI_API_KEY || "";
 
 export async function generateDidacticSheet(topicId: TopicId, topicTitle: string): Promise<DidacticSheet> {
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
+  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
   
   const prompt = `Genera una ficha didáctica de matemáticas para alumnos de 1° de Primaria en México, alineada al Programa Sintético 2022.
   El tema específico es: "${topicTitle}" (ID: ${topicId}).
