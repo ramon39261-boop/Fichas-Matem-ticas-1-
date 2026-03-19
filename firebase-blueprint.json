@@ -1,0 +1,55 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "App user profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "DidacticSheet": {
+      "title": "DidacticSheet",
+      "description": "Generated didactic sheet for teachers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "topicId": { "type": "string" },
+        "title": { "type": "string" },
+        "topic": { "type": "string" },
+        "objective": { "type": "string" },
+        "instructions": { "type": "string" },
+        "teacherNotes": { "type": "string" },
+        "activities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "enum": ["exercise", "problem", "drawing", "table"] },
+              "content": { "type": "string" },
+              "visualDescription": { "type": "string" }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "topic", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "/users/{userId}/sheets/{sheetId}": {
+      "schema": "DidacticSheet",
+      "description": "User's saved didactic sheets"
+    }
+  }
+}
